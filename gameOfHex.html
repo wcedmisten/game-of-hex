@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+  <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+  </head>
+
+<canvas id="Canvas" width="1700" height="740"></canvas>
+
+<div id = "buttons" style = "margin-left: 10px">
+    <div>
+        Speed:
+        <input type="range" id="speed" style = "width: 300px" value="500">
+    </div>
+
+    <script>
+    document.getElementById("speed").max = 1000;
+    document.getElementById("speed").min = 100;
+    </script>
+
+    <div>
+    Cell Color:
+    <input type="text" id = "color" class="form-control" style = "width: 300px" value = "#FF0000" placeholder="Color" maxlength = "20">    
+    </div>
+    
+    <div class = "row">
+        <div class="col-md-6">
+            <button type="button" class = "btn btn-danger" style = "float: left" onclick='reset()'>Reset</button>
+            <button type="button" class = "btn btn-danger" style = "float: left" onclick='clearCells()'>Clear</button>
+            <button type="button" class = "btn" style = "float: left" onclick='pause()'>Pause</button>
+            <button type="button" class = "btn" style = "float: left" onclick='play()'>Play</button>
+        </div>
+    </div>
+</div>    
+
+<script>
+    
+Canvas.width = window.innerWidth;
+Canvas.height = window.innerHeight - 160;
+    
+var c = document.getElementById("Canvas");
+var ctx = document.getElementById("Canvas").getContext("2d");
+
+var hexSize = 20;
+
+var delayTime = 1100 - document.getElementById("speed").value;
+var hexArray = [];
+var pointArray = [];
+
+var numRows = Math.floor(window.innerHeight/20)-3;
+var numColumns = Math.floor(window.innerWidth/60)-1;
+
+//flag for pause and play buttons
+var paused = false;
+
+function drawHex(Xcenter, Ycenter, size, color, filled, thickness) {
+    var numberOfSides = 6;
+    ctx.strokeStyle = "#000000";
+    ctx.beginPath();
+    ctx.moveTo (Xcenter +  size, Ycenter);          
+
+    for (var i = 1; i <= numberOfSides; i ++) {
+        ctx.lineTo (Xcenter + size * Math.cos(i * 2 * Math.PI / numberOfSides), Ycenter + size * Math.sin(i * 2 * Math.PI / numberOfSides));
+    }
+    
+    ctx.lineWidth = thickness;
+    ctx.stroke();
+    
+    if (filled) {
+        ctx.fillStyle = color;
+    }
+    else {
+        ctx.fillStyle = "#FFFFFF";
+    }
+    ctx.closePath();
+    ctx.fill();
+}
+
+function findDistance(x1,y1,x2,y2){
+    return Math.sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2));
+}
+
+var mouseX = 0;
+var mouseY = 0;
+
+function getMousePos(canvas, evt) {
+    var rect = Canvas.getBoundingClientRect();
+    return {
+      x: evt.clientX - rect.left,
+      y: evt.clientY - rect.top
+    };
+}
+
+function updateMouse(e){
+    var mousePos = getMousePos(Canvas, e);
+    mouseX = mousePos.x;
+    mouseY = mousePos.y;
+}
+
+function highlightHex(){
+    if (mouseY < Canvas.height){
+        var minI = 0;
+        var minJ = 0;
+        var minDistance = findDistance(mouseX, mouseY, pointArray[0][0].x, pointArray[0][0].y);
+        for (var i = 0; i < numColumns; i++) {
+            for (var j = Math.ceil(mouseY/40) - 3 ; j < numRows; j++) {
+
+                if (findDistance(mouseX,mouseY,pointArray[i][j].x,pointArray[i][j].y) < minDistance){
+                    minDistance = findDistance(mouseX,mouseY,pointArray[i][j].x,pointArray[i][j].y);
+                    minI = i;
+                    minJ = j;
+                }
+            }
+        }
+        //if it's a 0, make it a 1, if it's a 1, make it a 0
+        if (hexArray[minI][minJ] === 0 || hexArray[minI][minJ] ===1) {
+            hexArray[minI][minJ] = 1 - hexArray[minI][minJ];
+        }
+        
+        drawAllHex(document.getElementById("color").value);
+    }
+    
+}    
+    
+function countNeighbors(i,j){
+    var numNeighbors = 0;
+    if (i > 0 && i < numColumns && j > 1 && j < numRows-1){
+        //top and bottom
+        if (hexArray[i][j+2] ===1){
+            numNeighbors++;
+        }
+        if (hexArray[i][j-2] ===1){
+            numNeighbors++;
+        }
+        //left cells
+        if (hexArray[i-1][j+1] ===1){
+            numNeighbors++;
+        }
+        if (hexArray[i-1][j-1] ===1){
+            numNeighbors++;
+        }
+        //right cells
+        if (hexArray[i][j+1] ===1){
+            numNeighbors++;
+        }
+        if (hexArray[i][j-1] ===1){
+            numNeighbors++;
+        }
+    }
+    return numNeighbors;
+}
+
+var startX = 21;
+var startY = 21;
+
+function coord(x,y){
+    this.x = x;
+    this.y = y;
+}
+
+function init() {
+    for (var i = 0; i < numColumns; i++) {
+        hexArray[i] = [];
+        pointArray[i] = [];
+        for (var j = 0; j < numRows; j++) {
+            if (Math.random() < .2){
+                hexArray[i][j] = 1;
+            }
+            else {
+                hexArray[i][j] = 0;
+            }
+            
+            if (j % 2 === 0) {
+                pointArray[i][j] = new coord(startX + i * 60, startY + j * 17);
+            }
+            else {
+                pointArray[i][j] = new coord(startX + i * 60 + 30, startY + j * 17);
+            }
+        }
+    }
+}
+
+function pause(){
+    paused = true;
+}
+    
+function play(){
+    paused = false;
+    updateCells();
+}
+
+function clearCells(){
+    console.log('run');
+    for (var i = 0; i < numColumns; i++) {
+        for (var j = 0; j < numRows; j++) {
+            hexArray[i][j] = 0;
+        }
+    }
+    drawAllHex(document.getElementById("color").value);
+    paused = true;
+}
+
+function reset(){
+    paused = true;
+    init();
+    drawAllHex(document.getElementById("color").value);
+}
+    
+function drawAllHex(fillColor){
+    for (var i = 0; i < numColumns; i ++) {
+        for (var j = 0; j < numRows; j++) {
+            
+            if (j % 2 === 0) {
+                pointArray[i][j].x = startX + i * 60;
+                pointArray[i][j].y = startY + j * 17;
+                if (hexArray[i][j] === 0){
+                    drawHex(startX + i * 60, startY + j * 17, hexSize, "#000000", false,1);
+                }
+                if (hexArray[i][j] === 1){
+                    drawHex(startX + i * 60, startY + j * 17, hexSize, fillColor, true,1);
+                }
+                
+            }
+            else {
+                pointArray[i][j].x = startX + i * 60 + 30;
+                pointArray[i][j].y = startY + j * 17;
+                
+                if (hexArray[i][j] === 0){
+                    drawHex(startX + i * 60 + 30, startY + j * 17, hexSize, "#000000", false,1);
+                }
+                if (hexArray[i][j] === 1){
+                    drawHex(startX + i * 60 + 30, startY + j * 17, hexSize, fillColor, true,1);
+                }
+            }
+        }
+    }
+}
+
+/*
+Original rules:
+Any live cell with fewer than two live neighbours dies, as if caused by under-population.
+Any live cell with two or three live neighbours lives on to the next generation.
+Any live cell with more than three live neighbours dies, as if by overcrowding.
+Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
+*/ 
+
+//key for cell state
+//0 - dead cell
+//1 - live cell
+//2 - transitioning live to dead
+//3 transitioning dead to live
+
+function updateCells() {
+    if (!paused){
+        //first converts all transitioning cells to dead or alive state
+        for (var i = 0; i < numColumns; i ++) {
+            for (var j = 0; j < numRows; j++) {
+                if (hexArray[i][j] === 2) {
+                    hexArray[i][j] = 0;
+                }
+                if (hexArray[i][j] === 3) {
+                    hexArray[i][j] = 1;
+                }
+            }
+        }
+
+        //deals with non-transitioning cells
+        for (var i = 0; i < numColumns; i ++) {
+            for (var j = 0; j < numRows; j++) {
+                if (hexArray[i][j] === 1) {
+                    if (countNeighbors(i,j) < 2){
+                        hexArray[i][j] = 2;
+                    }
+                    if (countNeighbors(i,j) > 3){
+                        hexArray[i][j] = 2;
+                    }
+                }
+                if (hexArray[i][j] === 0) {
+                    if (countNeighbors(i,j) === 2) {
+                        hexArray[i][j] = 3;
+                    }
+                }
+            }
+        }
+        drawAllHex(document.getElementById("color").value);
+        //updateCells calls itself with the new delay value
+        setTimeout(updateCells, 1100- document.getElementById("speed").value);
+    }
+}
+
+init();
+
+window.addEventListener('mousemove', updateMouse, false);
+window.addEventListener("mousedown", highlightHex, false);
+    
+drawAllHex(document.getElementById("color").value);
+updateCells();
+</script>
+</html>
